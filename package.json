@@ -1,42 +1,83 @@
 {
-  "name": "billing_frontender_magazine",
+  "name": "article_frontender_magazine",
   "version": "1.0.0",
   "private": false,
-  "description": "Billing Frontender Magazine",
+  "description": "Users Frontender Magazine",
   "keywords": [],
   "author": "Anton Nemtsev <thesilentimp@gmail.com>",
-  "license": "CC",
+  "contributors": [
+    {
+      "name": "Anton Nemtsev",
+      "email": "thesilentimp@gmail.com"
+    }
+  ],
+  "license": "CC-BY-4.0",
   "main": "server.js",
   "dependencies": {
+    "@plasma-platform/tm-message-hook": "^1.0.1",
     "babel-cli": "^6.26.0",
     "babel-core": "^6.26.0",
     "babel-eslint": "^8.0.1",
     "babel-polyfill": "^6.26.0",
     "babel-preset-env": "^1.6.0",
     "babel-preset-stage-0": "^6.24.1",
-    "connect-redis": "^3.3.0",
+    "babel-preset-stage-1": "^6.24.1",
+    "babel-preset-stage-2": "^6.24.1",
+    "babel-preset-stage-3": "^6.24.1",
+    "build": "^0.1.4",
     "dotenv": "^4.0.0",
-    "eslint": "^4.8.0",
+    "eslint": "^4.9.0",
     "eslint-config-airbnb": "^16.0.0",
+    "eslint-config-prettier": "^2.6.0",
     "eslint-plugin-import": "^2.7.0",
+    "eslint-plugin-jest": "^21.2.0",
     "eslint-plugin-jsx-a11y": "^6.0.2",
     "eslint-plugin-react": "^7.4.0",
-    "express-session": "^1.15.5",
-    "jsonwebtoken": "^7.4.3",
-    "jwt-builder": "^1.1.0",
-    "node-session": "^1.2.1",
-    "request": "^2.81.0",
-    "request-promise": "^4.2.1",
-    "restify": "^5.2.0",
+    "file-exists": "^4.0.0",
+    "fs": "0.0.1-security",
+    "joi": "^10.6.0",
+    "lint-staged": "^4.2.3",
+    "mongodb": "^2.2.31",
+    "mongoose": "^4.11.7",
+    "npm-run-all": "^4.1.1",
+    "prettier": "^1.7.4",
+    "restify": "^4.0.2",
     "restify-cookies": "^0.2.2",
-    "restify-session": "^1.1.1",
-    "serve-static-restify": "^2.0.0"
+    "restify-joi-middleware": "^3.0.0",
+    "restify-jwt": "^0.4.0",
+    "restify-mongoose": "^2.0.1"
   },
   "scripts": {
-    "install": "npm run build",
+    "lint": "npm run format && npm-run-all lint:*",
+    "lint:js": "eslint --ext .js --color -f stylish --fix ./source/**/*",
+    "lint:doc": "documentation lint source/**/*.js*",
+    "format": "prettier --write --single-quote --print-width 100 --trailing-comma all 'source/**/*.{js,jsx}'",
+    "precommit": "git add . -A && lint-staged",
+    "commitmsg": "commit-msg ${GIT_PARAMS}",
     "start": "node ./build/server.js",
-    "build:dev": "babel source -s true -d build --ignore __tests__/**,__mocks__/**",
     "build": "babel source --minified -s true -d build --ignore __tests__/**,__mocks__/**",
     "watch": "babel source --watch --minified -s true -d build --ignore __tests__/**,__mocks__/**"
+  },
+  "lint-staged": {
+    "*.{js}": [
+      "npm run format",
+      "eslint --color -f stylish --fix",
+      "git add"
+    ]
+  },
+  "jest": {
+    "modulePaths": [
+      "source/"
+    ],
+    "moduleNameMapper": {
+      "\\.(jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga)$": "<rootDir>/source/__mocks__/fileMock.js",
+      "\\.(css|less|pcss)$": "<rootDir>/source/__mocks__/styleMock.js"
+    },
+    "coverageReporters": [
+      "clover",
+      "json",
+      "text",
+      "html"
+    ]
   }
 }
