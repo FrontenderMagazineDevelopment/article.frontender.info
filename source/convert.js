@@ -4,7 +4,8 @@ import dotenv from 'dotenv';
 import fs from 'fs';
 import { resolve } from 'path';
 
-import Users from './models/Users';
+import User from './models/User';
+import Article from './models/Article';
 
 const ENV_PATH = resolve(__dirname, '../../.env');
 const CONFIG_DIR = '../config/';
@@ -18,8 +19,11 @@ dotenv.config({ path: ENV_PATH });
 if (!fs.existsSync(CONFIG_PATH)) throw new Error(`Config not found: ${CONFIG_PATH}`);
 const config = require(CONFIG_PATH); // eslint-disable-line
 
+let articles = require('./articles.json'); // eslint-disable-line
+articles = Object.values(articles);
+
 let contributors = require('./contributors.json'); // eslint-disable-line
-contributors = JSON.parse(JSON.stringify(contributors));
+
 
 (async () => {
   mongoose.Promise = global.Promise;
@@ -28,21 +32,99 @@ contributors = JSON.parse(JSON.stringify(contributors));
     { useMongoClient: true },
   );
 
-  // eslint-disable-next-line
-  for (const login in contributors) {
-    const user = contributors[login];
-    const mongooseUser = new Users({
-      name: user.name,
-      avatar: user.img,
-      team: user.team,
-      core: false,
-    });
+  const list = articles.map(async (article) => {
 
-    if (user.contacts.Twitter) mongooseUser.twitter = user.contacts.Twitter.url;
-    if (user.contacts.GitHub) mongooseUser.github = user.contacts.GitHub.url;
-    if (user.contacts['Сaйт']) mongooseUser.blog = user.contacts['Сaйт'].url;
+    let original = {
+      url: article.url,
+      domain: article.domain,
+      title: article.eng,
+      published: new Date(article.original_publish_date),
+      lang: 'eng',
+    };
 
-    console.log(mongooseUser); // eslint-disable-line
-    await mongooseUser.save(); // eslint-disable-line
-  }
+    if (article.contributors !== null) {
+
+      let authors = Object.keys(article.contributors).filter((name)=>((article.contributors[name] === 'Автор')||(article.contributors[name] === 'Aвтор')));
+
+      if (authors.length === 0) {
+        throw new Error(`Автор не найден ${JSON.stringify(article.contributors)}`);
+      }
+
+      authors = authors.filter((login) => (
+        (contributors[login] !== undefined)
+        || (contributors[login.toLowerCase()] === undefined)
+      ));
+
+      if (authors.length === 0) {
+        throw new Error(`Не могу получить псевдоним: ${JSON.stringify(article)}`);
+      }
+
+      authors = authors.map(async (login) => {
+        const value = (contributors[login] !== undefined) ? contributors[login].name : contributors[login.toLowerCase()].name;
+        const user = await User.find({ name: value });
+        return user[0]._id;
+      });
+
+      authors = await Promise.all(authors);
+      if (authors.length === 0) {
+        throw new Error(`автор? ${JSON.stringify(article)}`);
+      }
+      original.author = authors;
+    }
+
+    console.log(article.ready);
+
+    if (article.ready === true) {
+
+      console.log('ready', article.type);
+
+      if (article.type === 'Статья') {
+        original = {
+          ...original,
+          lang: 'rus',
+          reponame: article.reponame,
+        }
+
+      } else {
+        const translation = {
+          url: `https://frontender.info/${article.reponame}/`,
+          domain: 'frontender.info',
+          title: article.rus,
+          lang: 'rus',
+          reponame: article.reponame,
+          published: new Date(article.magazine_publish_date),
+        };
+
+        let translators = Object.keys(article.contributors).filter((name)=>(article.contributors[name] === 'Переводчик'));
+
+        translators = translators.filter((login) => (
+          (contributors[login] !== undefined)
+          || (contributors[login.toLowerCase()] === undefined)
+        ));
+
+        translators = translators.map(async (login) => {
+          const value = (contributors[login] === undefined) ? contributors[login.toLowerCase()].name : contributors[login].name;
+          const user = await User.find({ name: value });
+          return user[0]._id;
+        });
+
+        translators = await Promise.all(translators);
+        translation.author = translators;
+
+        original.translations = [translation];
+      }
+    }
+
+    console.log(original);
+
+    const toSave = new Article(original);
+
+    await toSave.save();
+
+    return original;
+  });
+
+  await Promise.all(list);
+
+  mongoose.connection.close();
 })();

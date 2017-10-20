@@ -150,17 +150,51 @@ server.pre((req, res, next) => {
 });
 
 server.get('/', jwt(jwtOptions), async (req, res, next) => {
+
   if (req.user.scope.isOwner === false) {
     res.status(401);
     res.end();
     return next();
   }
+
   if (req.url === '/favicon.ico') {
     res.state(204);
     res.end();
     return next();
   }
-  const result = await Article.find();
+
+  const query = {};
+
+  if (req.query.s !== undefined) {
+    query.$text = {
+      $search: req.query.s,
+      $language: 'en',
+    };
+  }
+
+  const page = parseInt(req.query.page, 10) || 1;
+  const perPage = parseInt(req.query.per_page, 10) || 20;
+  const total = await Article.find(query).count();
+  const pagesCount = Math.ceil(total/perPage);
+
+  res.setHeader('X-Pagination-Current-Page', page);
+  res.setHeader('X-Pagination-Per-Page', perPage);
+  res.setHeader('X-Pagination-Total-Count', total);
+  res.setHeader('X-Pagination-Page-Count', pagesCount);
+
+  const links = [];
+  links.push(`<${config.domain}?page=1>; rel=first`);
+  if ( page > 1 ) {
+    links.push(`<${config.domain}?page=${(page - 1)}>; rel=prev`);
+  }
+  links.push(`<${config.domain}?page=${page}>; rel=self`);
+  if ( page < pagesCount ) {
+    links.push(`<${config.domain}?page=${(page + 1)}>; rel=prev`);
+  }
+  links.push(`<${config.domain}?page=${pagesCount}>; rel=last`);
+  res.setHeader('Link', links.join(', '));
+
+  const result = await Article.find(query).skip((page - 1) * perPage).limit(perPage);
   res.status(200);
   res.send(result);
   res.end();

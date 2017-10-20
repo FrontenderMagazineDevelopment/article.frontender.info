@@ -5,8 +5,9 @@ const ArticleSchema = new mongoose.Schema({
   domain: { type: String, required: true, text: true }, // domain from the url
   title: { type: String, required: true, text: true }, // title of article
   lang: { type: String, required: true }, // iso code of the language
+  published: { type: Date, required: true },
 
-  characters: { type: Number, required: true }, // characters count for billing
+  characters: { type: Number }, // characters count for billing
 
   author: { type: Array }, // Author of article or translation
   contributors: { type: Array }, // Editors, independent contributors from github
