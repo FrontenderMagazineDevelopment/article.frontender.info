@@ -66,7 +66,7 @@ server.get('/ticket-departments/:id', async (req, res, next) => {
     res.setHeader('Expires', '0');
   }
 
-  res.state(200);
+  res.status(200);
   res.send(`{"id":172,"author_id":862,"user_id":1531778,"department_id":257, solt: ${Math.random()*Date.now()}}`);
   res.end();
   return next();
