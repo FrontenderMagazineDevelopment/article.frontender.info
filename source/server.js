@@ -1,7 +1,6 @@
 import 'babel-polyfill';
 import mongoose from 'mongoose';
 import restify from 'restify';
-import joi from 'joi';
 import jwt from 'restify-jwt';
 import cookieParser from 'restify-cookies';
 import dotenv from 'dotenv';
@@ -11,98 +10,9 @@ import validator from 'restify-joi-middleware';
 
 import Article from './models/Article';
 
-const articlePOSTValidation = {
-  body: joi
-    .object()
-    .keys({
-      url: joi
-        .string()
-        .required()
-        .uri(),
-      domain: joi.string().required(),
-      title: joi.string().required(),
-      lang: joi.string().required(),
-      characters: joi.number().required(),
-
-      authors: joi.array().items(joi.string()),
-      contributors: joi.array().items(
-        joi.object().keys({
-          login: joi.string().required(),
-          url: joi.string().uri(),
-        }),
-      ),
-
-      tags: joi.array().items(joi.string()),
-
-      reponame: joi.string(),
-
-      translations: joi.array(),
-    })
-    .required(),
-};
-
-const articlePUTValidation = {
-  body: joi
-    .object()
-    .keys({
-      url: joi
-        .string()
-        .required()
-        .uri(),
-      domain: joi.string().required(),
-      title: joi.string().required(),
-      lang: joi.string().required(),
-      characters: joi.number().required(),
-
-      authors: joi.array().items(joi.string()),
-      contributors: joi.array().items(
-        joi.object().keys({
-          login: joi.string().required(),
-          url: joi.string().uri(),
-        }),
-      ),
-
-      tags: joi.array().items(joi.string()),
-
-      reponame: joi.string(),
-
-      translations: joi.array(),
-
-      _id: joi.string().required(),
-      __v: joi.number(),
-    })
-    .required(),
-};
-
-const articlePATCHValidation = {
-  body: joi
-    .object()
-    .keys({
-      url: joi.string(),
-      domain: joi.string(),
-      title: joi.string(),
-      lang: joi.string(),
-      characters: joi.number(),
-
-      authors: joi.array().items(joi.string()),
-      contributors: joi.array().items(
-        joi.object().keys({
-          login: joi.string().required(),
-          url: joi.string().uri(),
-        }),
-      ),
-
-      tags: joi.array().items(joi.string()),
-
-      reponame: joi.string(),
-
-      translations: joi.array(),
-
-      _id: joi.string().required(),
-      __v: joi.number(),
-    })
-    .required(),
-};
+import articlePOSTValidation from './validators/article/post';
+import articlePUTValidation from './validators/article/put';
+import articlePATCHValidation from './validators/article/patch';
 
 const ENV_PATH = resolve(__dirname, '../../.env');
 const CONFIG_DIR = '../config/';
@@ -149,6 +59,19 @@ server.pre((req, res, next) => {
   return next();
 });
 
+server.get('/ticket-departments/:id', async (req, res, next) => {
+
+  if (parseInt(req.params.id,10) === 1) {
+    // res.setHeader('Cache-Control', 'max-age=16070400');
+    res.setHeader('Expires', '0');
+  }
+
+  res.state(200);
+  res.send(`{"id":172,"author_id":862,"user_id":1531778,"department_id":257, solt: ${Math.random()*Date.now()}}`);
+  res.end();
+  return next();
+});
+
 server.get('/', jwt(jwtOptions), async (req, res, next) => {
 
   if (req.user.scope.isOwner === false) {
@@ -167,7 +90,9 @@ server.get('/', jwt(jwtOptions), async (req, res, next) => {
 
   if (req.query.s !== undefined) {
     query.$text = {
-      $search: req.query.s
+      $search: req.query.s,
+      $caseSensitive: false,
+      $diacriticSensitive: false,
     };
   }
 
