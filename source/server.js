@@ -63,7 +63,7 @@ server.get('/ticket-departments/:id', async (req, res, next) => {
 
   // if (parseInt(req.params.id,10)%2 === 0) {
   // res.setHeader('Cache-Control', 'max-age=16070400');
-  res.setHeader('Cache-Control', 'no-cache');
+  // res.setHeader('Cache-Control', 'no-cache');
   // }
 
   res.status(200);
