@@ -61,10 +61,8 @@ server.pre((req, res, next) => {
 
 server.get('/ticket-departments/:id', async (req, res, next) => {
 
-  if (parseInt(req.params.id,10)%2 === 0) {
-    // res.setHeader('Cache-Control', 'max-age=16070400');
-    res.setHeader('Expires', '0');
-  }
+
+  res.setHeader('Expires', '0');
 
   res.status(200);
   res.send(`{"id":172,"author_id":862,"user_id":1531778,"department_id":257, solt: ${Math.random()*Date.now()}}`);
