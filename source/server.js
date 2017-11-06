@@ -167,20 +167,29 @@ server.get('/', jwt(jwtOptions), async (req, res, next) => {
 
   if (req.query.s !== undefined) {
     query.$text = {
-      $search: `"${req.query.s}"`,
-      $language: 'en',
+      $search: req.query.s
     };
   }
 
-  const page = parseInt(req.query.page, 10) || 1;
+  let page = parseInt(req.query.page, 10) || 1;
   const perPage = parseInt(req.query.per_page, 10) || 20;
   const total = await Article.find(query).count();
   const pagesCount = Math.ceil(total/perPage);
+
+  if (perPage === 0) {
+    const result = await Article.find(query);
+    res.status(200);
+    res.send(result);
+    res.end();
+    return next();
+  }
 
   res.setHeader('X-Pagination-Current-Page', page);
   res.setHeader('X-Pagination-Per-Page', perPage);
   res.setHeader('X-Pagination-Total-Count', total);
   res.setHeader('X-Pagination-Page-Count', pagesCount);
+
+  page = Math.min(page, pagesCount);
 
   const links = [];
   links.push(`<${config.domain}?page=1>; rel=first`);
@@ -198,7 +207,7 @@ server.get('/', jwt(jwtOptions), async (req, res, next) => {
   res.status(200);
   res.send(result);
   res.end();
-  return true;
+  return next();
 });
 
 server.post(
