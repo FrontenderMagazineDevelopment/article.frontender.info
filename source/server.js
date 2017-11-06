@@ -174,7 +174,7 @@ server.get('/', jwt(jwtOptions), async (req, res, next) => {
 
   const page = parseInt(req.query.page, 10) || 1;
   const perPage = parseInt(req.query.per_page, 10) || 20;
-  const total = await Article.find(query).count();
+  const total = await Article.find(query, {score: {$meta: "toextScore"}}).count();
   const pagesCount = Math.ceil(total/perPage);
 
   res.setHeader('X-Pagination-Current-Page', page);
@@ -194,7 +194,7 @@ server.get('/', jwt(jwtOptions), async (req, res, next) => {
   links.push(`<${config.domain}?page=${pagesCount}>; rel=last`);
   res.setHeader('Link', links.join(', '));
 
-  const result = await Article.find(query).skip((page - 1) * perPage).limit(perPage);
+  const result = await Article.find(query, {score: {$meta: "toextScore"}}).sort({score:{$meta:"textScore"}}).skip((page - 1) * perPage).limit(perPage);
   res.status(200);
   res.send(result);
   res.end();

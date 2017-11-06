@@ -1,10 +1,10 @@
 import mongoose from 'mongoose';
 
 const ArticleSchema = new mongoose.Schema({
-  url: { type: String, required: true }, // article current url
-  domain: { type: String, required: true, text: true }, // domain from the url
-  title: { type: String, required: true, text: true }, // title of article
-  lang: { type: String, required: true }, // iso code of the language
+  url: { type: String, required: true, trim: true, lowercase: true }, // article current url
+  domain: { type: String, required: true, text: true, trim: true, lowercase: true }, // domain from the url
+  title: { type: String, required: true, text: true, trim: true }, // title of article
+  lang: { type: String, required: true, trim: true }, // iso code of the language
   published: { type: Date, required: true },
 
   characters: { type: Number }, // characters count for billing

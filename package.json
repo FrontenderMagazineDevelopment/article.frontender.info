@@ -12,7 +12,7 @@
     }
   ],
   "license": "CC-BY-4.0",
-  "main": "server.js",
+  "main": "build/server.js",
   "dependencies": {
     "@plasma-platform/tm-message-hook": "^1.0.1",
     "babel-cli": "^6.26.0",
@@ -21,9 +21,6 @@
     "babel-polyfill": "^6.26.0",
     "babel-preset-env": "^1.6.0",
     "babel-preset-stage-0": "^6.24.1",
-    "babel-preset-stage-1": "^6.24.1",
-    "babel-preset-stage-2": "^6.24.1",
-    "babel-preset-stage-3": "^6.24.1",
     "build": "^0.1.4",
     "dotenv": "^4.0.0",
     "eslint": "^4.9.0",
