@@ -1,7 +1,7 @@
 import 'babel-polyfill';
 import mongoose from 'mongoose';
-import restify from 'restify';
 import jwt from 'restify-jwt';
+import restify from 'restify';
 import cookieParser from 'restify-cookies';
 import dotenv from 'dotenv';
 import fs from 'fs';
@@ -49,6 +49,7 @@ server.use(restify.plugins.bodyParser());
 server.use(restify.plugins.gzipResponse());
 server.use(cookieParser.parse);
 server.use(validator());
+server.use(jwt(jwtOptions).unless({path: ['/']}));
 
 server.pre((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -72,13 +73,13 @@ server.get('/ticket-departments/:id', async (req, res, next) => {
   return next();
 });
 
-server.get('/', jwt(jwtOptions), async (req, res, next) => {
+server.get('/', async (req, res, next) => {
 
-  if (req.user.scope.isOwner === false) {
-    res.status(401);
-    res.end();
-    return next();
-  }
+  // if (req.user.scope.isOwner === false) {
+  //   res.status(401);
+  //   res.end();
+  //   return next();
+  // }
 
   if (req.url === '/favicon.ico') {
     res.state(204);
@@ -140,7 +141,6 @@ server.post(
     path: '/',
     validation: articlePOSTValidation,
   },
-  jwt(jwtOptions),
   async (req, res, next) => {
     if (req.user.scope.isOwner === false) {
       res.status(401);
@@ -179,7 +179,6 @@ server.put(
     path: '/:id',
     validation: articlePUTValidation,
   },
-  jwt(jwtOptions),
   async (req, res, next) => {
     if (req.user.scope.isOwner === false) {
       res.status(401);
@@ -226,7 +225,6 @@ server.patch(
     path: '/:id',
     validation: articlePATCHValidation,
   },
-  jwt(jwtOptions),
   async (req, res, next) => {
     if (req.user.scope.isTeam === false) {
       res.status(401);
@@ -275,7 +273,7 @@ server.patch(
  * @type {String} id - user id
  * @return {Object} - user
  */
-server.get('/:id', jwt(jwtOptions), async (req, res, next) => {
+server.get('/:id', async (req, res, next) => {
   if (req.params.id === 'favicon.ico') {
     res.status(204);
     res.end();
@@ -307,7 +305,7 @@ server.get('/:id', jwt(jwtOptions), async (req, res, next) => {
  * Remove user by ID
  * @type {String} - user id
  */
-server.del('/:id', jwt(jwtOptions), async (req, res, next) => {
+server.del('/:id', async (req, res, next) => {
   if (req.user.scope.isOwner === false) {
     res.status(401);
     res.end();
@@ -333,12 +331,12 @@ server.del('/:id', jwt(jwtOptions), async (req, res, next) => {
   return next();
 });
 
-server.opts('/:id', jwt(jwtOptions), async (req, res) => {
+server.opts('/:id', async (req, res) => {
   res.status(200);
   res.end();
 });
 
-server.opts('/', jwt(jwtOptions), async (req, res) => {
+server.opts('/', async (req, res) => {
   res.status(200);
   res.end();
 });
