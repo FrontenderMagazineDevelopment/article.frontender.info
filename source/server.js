@@ -49,7 +49,13 @@ server.use(restify.plugins.bodyParser());
 server.use(restify.plugins.gzipResponse());
 server.use(cookieParser.parse);
 server.use(validator());
-server.use(jwt(jwtOptions).unless({path: ['/']}));
+server.use(jwt(jwtOptions).unless({
+  path: [
+    {
+      url: '/',
+      methods: ['GET']
+    }
+  ]}));
 
 server.pre((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -60,26 +66,7 @@ server.pre((req, res, next) => {
   return next();
 });
 
-server.get('/ticket-departments/:id', async (req, res, next) => {
-
-  // if (parseInt(req.params.id,10)%2 === 0) {
-  // res.setHeader('Cache-Control', 'max-age=16070400');
-  res.setHeader('Cache-Control', 'no-cache');
-  // }
-
-  res.status(200);
-  res.send(`{"id":172,"author_id":862,"user_id":1531778,"department_id":257, solt: ${Math.random()*Date.now()}}`);
-  res.end();
-  return next();
-});
-
 server.get('/', async (req, res, next) => {
-
-  // if (req.user.scope.isOwner === false) {
-  //   res.status(401);
-  //   res.end();
-  //   return next();
-  // }
 
   if (req.url === '/favicon.ico') {
     res.state(204);
@@ -90,6 +77,7 @@ server.get('/', async (req, res, next) => {
   const query = {};
 
   if (req.query.s !== undefined) {
+    res.setHeader('Cache-Control', 'no-cache');
     query.$text = {
       $search: req.query.s,
       $caseSensitive: false,
