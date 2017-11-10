@@ -346,7 +346,7 @@ server.del('/:id', async (req, res, next) => {
  * @type {String} reponame - name of repository
  * @return {Object} - user
  */
-server.get('/reponame/:reponame', async (req, res, next) => {
+server.get('/repository/:reponame', async (req, res, next) => {
   let result;
   try {
     result = await Article.find({$or:[{reponame: req.params.reponame}, {"translations.reponame": req.params.reponame}] });
