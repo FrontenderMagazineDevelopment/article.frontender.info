@@ -54,6 +54,10 @@ server.use(jwt(jwtOptions).unless({
     {
       url: '/',
       methods: ['GET']
+    },
+    {
+      url: '/repository/',
+      methods: ['GET']
     }
   ]}));
 
