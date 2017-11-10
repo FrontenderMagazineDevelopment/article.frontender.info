@@ -9,8 +9,9 @@ export default {
       title: joi.string(),
       lang: joi.string(),
       characters: joi.number(),
+      published: joi.date(),
 
-      authors: joi.array().items(joi.string()),
+      author: joi.array().items(joi.string()),
       contributors: joi.array().items(
         joi.object().keys({
           login: joi.string().required(),

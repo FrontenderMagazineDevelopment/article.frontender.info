@@ -60,23 +60,24 @@ let contributors = require('./contributors.json'); // eslint-disable-line
       }
 
       authors = authors.map(async (login) => {
+        if ((contributors[login] === undefined) && (contributors[login.toLowerCase()] === undefined)) {
+          console.log('login ', login, ' fucked');
+        }
         const value = (contributors[login] !== undefined) ? contributors[login].name : contributors[login.toLowerCase()].name;
         const user = await User.find({ name: value });
         return user[0]._id;
       });
 
       authors = await Promise.all(authors);
+      // console.log('Статья :', article.eng, 'Пользователи: ', authors);
+
       if (authors.length === 0) {
         throw new Error(`автор? ${JSON.stringify(article)}`);
       }
       original.author = authors;
     }
 
-    console.log(article.ready);
-
     if (article.ready === true) {
-
-      console.log('ready', article.type);
 
       if (article.type === 'Статья') {
         original = {
@@ -103,6 +104,9 @@ let contributors = require('./contributors.json'); // eslint-disable-line
         ));
 
         translators = translators.map(async (login) => {
+          if ((contributors[login] === undefined) && (contributors[login.toLowerCase()] === undefined)) {
+            console.log('login ', login, ' fucked');
+          }
           const value = (contributors[login] === undefined) ? contributors[login.toLowerCase()].name : contributors[login].name;
           const user = await User.find({ name: value });
           return user[0]._id;
@@ -115,16 +119,27 @@ let contributors = require('./contributors.json'); // eslint-disable-line
       }
     }
 
-    console.log(original);
-
     const toSave = new Article(original);
 
-    await toSave.save();
+    await toSave.save((error, object)=>{
+      if (error !== null) {
+        console.log('Error: ', article.eng, " : ", error);
+        throw new Error(error);
+      } else {
+        console.log('Article: ', object);
+      }
+    });
+
+    console.log(toSave);
 
     return original;
   });
 
-  await Promise.all(list);
-
-  mongoose.connection.close();
+  await Promise.all(list).then(()=>{
+    console.log('done');
+    mongoose.connection.close();
+  }).catch(err => {
+    console.log(err);
+    mongoose.connection.close();
+  });
 })();

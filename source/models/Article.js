@@ -9,7 +9,10 @@ const ArticleSchema = new mongoose.Schema({
 
   characters: { type: Number }, // characters count for billing
 
-  author: { type: Array }, // Author of article or translation
+  author: [{
+    type: mongoose.Schema.ObjectId,
+    ref: 'users',
+  }], // Author of article or translation
   contributors: { type: Array }, // Editors, independent contributors from github
 
   tags: { type: Array }, // list of tags

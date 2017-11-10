@@ -11,9 +11,10 @@ export default {
       domain: joi.string().required(),
       title: joi.string().required(),
       lang: joi.string().required(),
-      characters: joi.number().required(),
+      published: joi.date().required(),
+      characters: joi.number(),
 
-      authors: joi.array().items(joi.string()),
+      author: joi.array().items(joi.string()),
       contributors: joi.array().items(
         joi.object().keys({
           login: joi.string().required(),

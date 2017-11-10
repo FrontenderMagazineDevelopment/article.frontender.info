@@ -49,6 +49,13 @@ server.use(restify.plugins.bodyParser());
 server.use(restify.plugins.gzipResponse());
 server.use(cookieParser.parse);
 server.use(validator());
+server.use(jwt(jwtOptions).unless({
+  path: [
+    {
+      url: '/',
+      methods: ['GET']
+    }
+  ]}));
 
 server.pre((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -59,26 +66,7 @@ server.pre((req, res, next) => {
   return next();
 });
 
-server.get('/ticket-departments/:id', async (req, res, next) => {
-
-  // if (parseInt(req.params.id,10)%2 === 0) {
-  // res.setHeader('Cache-Control', 'max-age=16070400');
-  res.setHeader('Cache-Control', 'no-cache');
-  // }
-
-  res.status(200);
-  res.send(`{"id":172,"author_id":862,"user_id":1531778,"department_id":257, solt: ${Math.random()*Date.now()}}`);
-  res.end();
-  return next();
-});
-
-server.get('/', jwt(jwtOptions), async (req, res, next) => {
-
-  if (req.user.scope.isOwner === false) {
-    res.status(401);
-    res.end();
-    return next();
-  }
+server.get('/', async (req, res, next) => {
 
   if (req.url === '/favicon.ico') {
     res.state(204);
@@ -86,23 +74,46 @@ server.get('/', jwt(jwtOptions), async (req, res, next) => {
     return next();
   }
 
-  const query = {};
+  const query = [];
 
   if (req.query.s !== undefined) {
-    query.$text = {
-      $search: req.query.s,
-      $caseSensitive: false,
-      $diacriticSensitive: false,
-    };
+    res.setHeader('Cache-Control', 'no-cache');
+    query.push({ $match: {
+        "$text": {
+          $search: req.query.s,
+          $caseSensitive: false,
+          $diacriticSensitive: false,
+        }
+      }
+    });
   }
+
+  query.push({
+    "$lookup": {
+      "from": "users",
+      "localField": "author",
+      "foreignField": "_id",
+      "as": "author",
+    }
+  });
+
+  query.push({
+    "$lookup": {
+      "from": "users",
+      "localField": "translations.author",
+      "foreignField": "_id",
+      "as": "translations.author",
+    }
+  });
 
   let page = parseInt(req.query.page, 10) || 1;
   const perPage = parseInt(req.query.per_page, 10) || 20;
-  const total = await Article.find(query).count();
+  const full = await Article.aggregate(query);
+  const total = full.length;
   const pagesCount = Math.ceil(total/perPage);
 
   if (perPage === 0) {
-    const result = await Article.find(query);
+    const result = full;
     res.status(200);
     res.send(result);
     res.end();
@@ -128,7 +139,7 @@ server.get('/', jwt(jwtOptions), async (req, res, next) => {
   links.push(`<${config.domain}?page=${pagesCount}>; rel=last`);
   res.setHeader('Link', links.join(', '));
 
-  const result = await Article.find(query).skip((page - 1) * perPage).limit(perPage);
+  const result = await Article.aggregate(query).skip((page - 1) * perPage).limit(perPage);
   res.status(200);
   res.send(result);
   res.end();
@@ -140,7 +151,6 @@ server.post(
     path: '/',
     validation: articlePOSTValidation,
   },
-  jwt(jwtOptions),
   async (req, res, next) => {
     if (req.user.scope.isOwner === false) {
       res.status(401);
@@ -179,7 +189,6 @@ server.put(
     path: '/:id',
     validation: articlePUTValidation,
   },
-  jwt(jwtOptions),
   async (req, res, next) => {
     if (req.user.scope.isOwner === false) {
       res.status(401);
@@ -226,7 +235,6 @@ server.patch(
     path: '/:id',
     validation: articlePATCHValidation,
   },
-  jwt(jwtOptions),
   async (req, res, next) => {
     if (req.user.scope.isTeam === false) {
       res.status(401);
@@ -275,7 +283,7 @@ server.patch(
  * @type {String} id - user id
  * @return {Object} - user
  */
-server.get('/:id', jwt(jwtOptions), async (req, res, next) => {
+server.get('/:id', async (req, res, next) => {
   if (req.params.id === 'favicon.ico') {
     res.status(204);
     res.end();
@@ -307,7 +315,7 @@ server.get('/:id', jwt(jwtOptions), async (req, res, next) => {
  * Remove user by ID
  * @type {String} - user id
  */
-server.del('/:id', jwt(jwtOptions), async (req, res, next) => {
+server.del('/:id', async (req, res, next) => {
   if (req.user.scope.isOwner === false) {
     res.status(401);
     res.end();
@@ -333,12 +341,12 @@ server.del('/:id', jwt(jwtOptions), async (req, res, next) => {
   return next();
 });
 
-server.opts('/:id', jwt(jwtOptions), async (req, res) => {
+server.opts('/:id', async (req, res) => {
   res.status(200);
   res.end();
 });
 
-server.opts('/', jwt(jwtOptions), async (req, res) => {
+server.opts('/', async (req, res) => {
   res.status(200);
   res.end();
 });
