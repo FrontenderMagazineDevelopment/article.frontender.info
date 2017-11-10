@@ -341,12 +341,62 @@ server.del('/:id', async (req, res, next) => {
   return next();
 });
 
+/**
+ * Get article by reponame
+ * @type {String} reponame - name of repository
+ * @return {Object} - user
+ */
+server.get('/reponame/:reponame', async (req, res, next) => {
+  let result;
+  try {
+    result = await Article.find({$or:[{reponame: req.params.reponame}, {"translations.reponame": req.params.reponame}] });
+  } catch (error) {
+    res.status(500);
+    res.send(error.message);
+    res.end();
+    return next();
+  }
+  res.status((result.length === 0) ? 404 : 200);
+  res.send(result);
+  res.end();
+  return next();
+});
+
+server.opts('/reponame/:reponame', async (req, res) => {
+  const methods = ['OPTIONS', 'GET'];
+  const method = req.header('Access-Control-Request-Method');
+  res.setHeader('Access-Control-Allow-Methods', methods.join(','));
+  if (methods.indexOf(method) === -1) {
+    res.status(400);
+    res.end();
+    return;
+  }
+  res.status(200);
+  res.end();
+});
+
 server.opts('/:id', async (req, res) => {
+  const methods = ['OPTIONS', 'GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
+  const method = req.header('Access-Control-Request-Method');
+  res.setHeader('Access-Control-Allow-Methods', methods.join(','));
+  if (methods.indexOf(method) === -1) {
+    res.status(400);
+    res.end();
+    return;
+  }
   res.status(200);
   res.end();
 });
 
 server.opts('/', async (req, res) => {
+  const methods = ['OPTIONS', 'GET', 'POST'];
+  const method = req.header('Access-Control-Request-Method');
+  res.setHeader('Access-Control-Allow-Methods', methods.join(','));
+  if (methods.indexOf(method) === -1) {
+    res.status(400);
+    res.end();
+    return;
+  }
   res.status(200);
   res.end();
 });
