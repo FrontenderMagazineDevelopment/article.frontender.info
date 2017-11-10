@@ -49,38 +49,260 @@ server.use(restify.plugins.bodyParser());
 server.use(restify.plugins.gzipResponse());
 server.use(cookieParser.parse);
 server.use(validator());
-server.use(jwt(jwtOptions).unless({
-  path: [
-    {
-      url: '/',
-      methods: ['GET']
-    },
-    {
-      url: '/:id',
-      methods: ['GET']
-    },
-    {
-      url: '/repository/:reponame',
-      methods: ['GET']
-    }
-  ]}));
+server.use(jwt(jwtOptions).unless({method: ['OPTIONS', 'GET']}));
 
 server.pre((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
-  res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type,Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Access-Control-Request-Method, X-Requested-With, Content-Type, Authorization');
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.charSet('utf-8');
   return next();
 });
 
-server.get('/', async (req, res, next) => {
+// OPTIONS
 
-  if (req.url === '/favicon.ico') {
-    res.state(204);
+server.opts({
+  name: 'Check methods allowed for repository endpoint',
+  path: '/reponame/:reponame',
+}, async (req, res) => {
+  const methods = ['OPTIONS', 'GET'];
+  const method = req.header('Access-Control-Request-Method');
+  res.setHeader('Access-Control-Allow-Methods', methods.join(','));
+  res.setHeader('Allow', methods.join(','));
+  if (methods.indexOf(method) === -1) {
+    res.status(405);
+    res.end();
+    return;
+  }
+  res.status(200);
+  res.end();
+});
+
+server.opts({
+  name: 'Check methods allowed for article',
+  path: '/:id'
+}, async (req, res) => {
+  const methods = ['OPTIONS', 'GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
+  const method = req.header('Access-Control-Request-Method');
+  res.setHeader('Access-Control-Allow-Methods', methods.join(','));
+  res.setHeader('Allow', methods.join(','));
+  if (methods.indexOf(method) === -1) {
+    res.status(405);
+    res.end();
+    return;
+  }
+  res.status(200);
+  res.end();
+});
+
+server.opts({
+  name: 'Check methods allowed for articles list',
+  path: '/:id'
+}, async (req, res) => {
+  const methods = ['OPTIONS', 'GET', 'POST'];
+  const method = req.header('Access-Control-Request-Method');
+  res.setHeader('Access-Control-Allow-Methods', methods.join(','));
+  res.setHeader('Allow', methods.join(','));
+  if (methods.indexOf(method) === -1) {
+    res.status(405);
+    res.end();
+    return;
+  }
+  res.status(200);
+  res.end();
+});
+
+/**
+ * Get article by reponame
+ * @type {String} reponame - name of repository
+ * @return {Object} - user
+ */
+server.get({
+  path: '/repository/:reponame',
+  name: 'Get article by repository'
+}, async (req, res, next) => {
+  let result;
+  try {
+    result = await Article.find({$or:[{reponame: req.params.reponame}, {"translations.reponame": req.params.reponame}] });
+  } catch (error) {
+    res.status(500);
+    res.send(error.message);
     res.end();
     return next();
   }
+  res.status((result.length === 0) ? 404 : 200);
+  res.send(result);
+  res.end();
+  return next();
+});
+
+// Article
+
+/**
+ * Replace article by id
+ * @type {String} id - article id
+ */
+server.put(
+  {
+    path: '/:id',
+    name: 'Replace article',
+    validation: articlePUTValidation,
+  },
+  jwt(jwtOptions),
+  async (req, res, next) => {
+    if (req.user.scope.isOwner === false) {
+      res.status(401);
+      res.end();
+      return next();
+    }
+
+    const result = await Article.replaceOne({ _id: req.params.id }, req.params);
+
+    if (!result.ok) {
+      res.status(500);
+      res.end();
+      return next();
+    }
+
+    if (!result.n) {
+      res.status(404);
+      res.end();
+      return next();
+    }
+
+    let user;
+    try {
+      user = await Article.findById(req.params.id);
+    } catch (error) {
+      res.status(404);
+      res.end();
+      return next();
+    }
+
+    res.status(200);
+    res.send(user);
+    res.end();
+    return next();
+  },
+);
+
+/**
+ * Edit user by id
+ * @type {String} id - user id
+ */
+server.patch(
+  {
+    path: '/:id',
+    name: 'Edit article',
+    validation: articlePATCHValidation,
+  },
+  jwt(jwtOptions),
+  async (req, res, next) => {
+    if (req.user.scope.isTeam === false) {
+      res.status(401);
+      res.end();
+      return next();
+    }
+
+    if (req.user.scope.isOwner === false) {
+      res.status(401);
+      res.end();
+      return next();
+    }
+
+    const result = await Article.updateOne({ _id: req.params.id }, req.params);
+
+    if (!result.ok) {
+      res.status(500);
+      res.end();
+      return next();
+    }
+
+    if (!result.n) {
+      res.status(404);
+      res.end();
+      return next();
+    }
+
+    let user;
+    try {
+      user = await Article.findById(req.params.id);
+    } catch (error) {
+      res.status(404);
+      res.end();
+      return next();
+    }
+
+    res.status(200);
+    res.send(user);
+    res.end();
+    return next();
+  },
+);
+
+/**
+ * Get user by ID
+ * @type {String} id - user id
+ * @return {Object} - user
+ */
+server.get({
+  path: '/:id',
+  name: 'Get article by ID',
+}, async (req, res, next) => {
+  if (req.params.id === '') return next('Get articles');
+  let result;
+  try {
+    result = await Article.findById(req.params.id);
+    if (result === null) throw new Error('no article')
+  } catch (error) {
+    res.status(404);
+    res.end();
+    return next();
+  }
+
+  res.status(200);
+  res.send(result);
+  res.end();
+  return next();
+});
+
+/**
+ * Remove user by ID
+ * @type {String} - user id
+ */
+server.del({
+  path: '/:id',
+  name: 'Delete article by ID',
+}, jwt(jwtOptions), async (req, res, next) => {
+  if (req.user.scope.isOwner === false) {
+    res.status(401);
+    res.end();
+    return next();
+  }
+
+  const result = await Article.remove({ _id: req.params.id });
+
+  if (!result.result.ok) {
+    res.status(500);
+    res.end();
+    return next();
+  }
+
+  if (!result.result.n) {
+    res.status(404);
+    res.end();
+    return next();
+  }
+
+  res.status(204);
+  res.end();
+  return next();
+});
+
+server.get({
+  path: '/',
+  name: 'Get articles',
+  },  async (req, res, next) => {
 
   const query = [];
 
@@ -157,8 +379,10 @@ server.get('/', async (req, res, next) => {
 server.post(
   {
     path: '/',
+    name: 'Create article',
     validation: articlePOSTValidation,
   },
+  jwt(jwtOptions),
   async (req, res, next) => {
     if (req.user.scope.isOwner === false) {
       res.status(401);
@@ -186,234 +410,15 @@ server.post(
   },
 );
 
-// User
-
-/**
- * Replace user by id
- * @type {String} id - user id
- */
-server.put(
-  {
-    path: '/:id',
-    validation: articlePUTValidation,
-  },
-  async (req, res, next) => {
-    if (req.user.scope.isOwner === false) {
-      res.status(401);
-      res.end();
-      return next();
-    }
-
-    const result = await Article.replaceOne({ _id: req.params.id }, req.params);
-
-    if (!result.ok) {
-      res.status(500);
-      res.end();
-      return next();
-    }
-
-    if (!result.n) {
-      res.status(404);
-      res.end();
-      return next();
-    }
-
-    let user;
-    try {
-      user = await Article.findById(req.params.id);
-    } catch (error) {
-      res.status(404);
-      res.end();
-      return next();
-    }
-
-    res.status(200);
-    res.send(user);
-    res.end();
-    return next();
-  },
-);
-
-/**
- * Edit user by id
- * @type {String} id - user id
- */
-server.patch(
-  {
-    path: '/:id',
-    validation: articlePATCHValidation,
-  },
-  async (req, res, next) => {
-    if (req.user.scope.isTeam === false) {
-      res.status(401);
-      res.end();
-      return next();
-    }
-
-    if (req.user.scope.isOwner === false) {
-      res.status(401);
-      res.end();
-      return next();
-    }
-
-    const result = await Article.updateOne({ _id: req.params.id }, req.params);
-
-    if (!result.ok) {
-      res.status(500);
-      res.end();
-      return next();
-    }
-
-    if (!result.n) {
-      res.status(404);
-      res.end();
-      return next();
-    }
-
-    let user;
-    try {
-      user = await Article.findById(req.params.id);
-    } catch (error) {
-      res.status(404);
-      res.end();
-      return next();
-    }
-
-    res.status(200);
-    res.send(user);
-    res.end();
-    return next();
-  },
-);
-
-/**
- * Get user by ID
- * @type {String} id - user id
- * @return {Object} - user
- */
-server.get('/:id', async (req, res, next) => {
-  if (req.params.id === 'favicon.ico') {
-    res.status(204);
-    res.end();
-    return next();
-  }
-
-  if (req.user.scope.isTeam === false) {
-    res.status(401);
-    res.end();
-    return next();
-  }
-
-  let result;
-  try {
-    result = await Article.findById(req.params.id);
-  } catch (error) {
-    res.status(404);
-    res.end();
-    return next();
-  }
-
-  res.status(200);
-  res.send(result);
-  res.end();
-  return next();
-});
-
-/**
- * Remove user by ID
- * @type {String} - user id
- */
-server.del('/:id', async (req, res, next) => {
-  if (req.user.scope.isOwner === false) {
-    res.status(401);
-    res.end();
-    return next();
-  }
-
-  const result = await Article.remove({ _id: req.params.id });
-
-  if (!result.result.ok) {
-    res.status(500);
-    res.end();
-    return next();
-  }
-
-  if (!result.result.n) {
-    res.status(404);
-    res.end();
-    return next();
-  }
-
-  res.status(204);
-  res.end();
-  return next();
-});
-
-/**
- * Get article by reponame
- * @type {String} reponame - name of repository
- * @return {Object} - user
- */
-server.get('/repository/:reponame', async (req, res, next) => {
-  let result;
-  try {
-    result = await Article.find({$or:[{reponame: req.params.reponame}, {"translations.reponame": req.params.reponame}] });
-  } catch (error) {
-    res.status(500);
-    res.send(error.message);
-    res.end();
-    return next();
-  }
-  res.status((result.length === 0) ? 404 : 200);
-  res.send(result);
-  res.end();
-  return next();
-});
-
-server.opts('/reponame/:reponame', async (req, res) => {
-  const methods = ['OPTIONS', 'GET'];
-  const method = req.header('Access-Control-Request-Method');
-  res.setHeader('Access-Control-Allow-Methods', methods.join(','));
-  if (methods.indexOf(method) === -1) {
-    res.status(400);
-    res.end();
-    return;
-  }
-  res.status(200);
-  res.end();
-});
-
-server.opts('/:id', async (req, res) => {
-  const methods = ['OPTIONS', 'GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
-  const method = req.header('Access-Control-Request-Method');
-  res.setHeader('Access-Control-Allow-Methods', methods.join(','));
-  if (methods.indexOf(method) === -1) {
-    res.status(400);
-    res.end();
-    return;
-  }
-  res.status(200);
-  res.end();
-});
-
-server.opts('/', async (req, res) => {
-  const methods = ['OPTIONS', 'GET', 'POST'];
-  const method = req.header('Access-Control-Request-Method');
-  res.setHeader('Access-Control-Allow-Methods', methods.join(','));
-  if (methods.indexOf(method) === -1) {
-    res.status(400);
-    res.end();
-    return;
-  }
-  res.status(200);
-  res.end();
-});
-
 (async () => {
-  mongoose.Promise = global.Promise;
-  await mongoose.connect(
-    `mongodb://${config.mongoDBHost}:${config.mongoDBPort}/${config.mongoDBName}`,
-    { useMongoClient: true },
-  );
-  server.listen(PORT);
+  try {
+    mongoose.Promise = global.Promise;
+    await mongoose.connect(
+      `mongodb://${config.mongoDBHost}:${config.mongoDBPort}/${config.mongoDBName}`,
+      { useMongoClient: true },
+    );
+    server.listen(PORT);
+  } catch (error) {
+    console.log(error);
+  }
 })();
