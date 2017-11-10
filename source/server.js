@@ -56,7 +56,11 @@ server.use(jwt(jwtOptions).unless({
       methods: ['GET']
     },
     {
-      url: '/repository/',
+      url: '/:id',
+      methods: ['GET']
+    },
+    {
+      url: '/repository/:reponame',
       methods: ['GET']
     }
   ]}));
