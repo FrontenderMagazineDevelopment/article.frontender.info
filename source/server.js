@@ -135,11 +135,6 @@ server.get({
       preserveNullAndEmptyArrays: true
     }});
 
-    // query.push({$unwind: {
-    //   path: "$translations.author",
-    //   preserveNullAndEmptyArrays: true
-    // }});
-
     query.push({
       "$lookup": {
         "from": "users",
@@ -300,8 +295,53 @@ server.get({
   if (req.params.id === '') return next('Get articles');
   let result;
   try {
-    result = await Article.findById(req.params.id);
-    if (result === null) throw new Error('no article')
+
+    const query = [];
+    query.push({
+      "$match": {
+        _id: req.params.id,
+      }
+    });
+
+    query.push({$unwind: {
+      path: "$translations",
+      preserveNullAndEmptyArrays: true
+    }});
+
+    query.push({
+      "$lookup": {
+        "from": "users",
+        "localField": "author",
+        "foreignField": "_id",
+        "as": "author",
+      }
+    });
+
+    query.push({
+      "$lookup": {
+        "from": "users",
+        "localField": "translations.author",
+        "foreignField": "_id",
+        "as": "translations.author",
+      }
+    });
+
+    query.push({$group: {
+      _id : "$_id",
+      url : {$first : "$url"},
+      domain : {$first : "$domain"},
+      title : {$first : "$title"},
+      published : {$first : "$published"},
+      lang : {$first : "$lang"},
+      tags : {$first : "$tags"},
+      contributors : {$first : "$contributors"},
+      author : {$first : "$author"},
+      translations: {$push : "$translations"}
+    }});
+
+    result = await Article.aggregate(query);
+
+    if (result === null) throw new Error('no such article')
   } catch (error) {
     res.status(404);
     res.end();
@@ -366,6 +406,11 @@ server.get({
     });
   }
 
+  query.push({$unwind: {
+    path: "$translations",
+    preserveNullAndEmptyArrays: true
+  }});
+
   query.push({
     "$lookup": {
       "from": "users",
@@ -383,6 +428,19 @@ server.get({
       "as": "translations.author",
     }
   });
+
+  query.push({$group: {
+    _id : "$_id",
+    url : {$first : "$url"},
+    domain : {$first : "$domain"},
+    title : {$first : "$title"},
+    published : {$first : "$published"},
+    lang : {$first : "$lang"},
+    tags : {$first : "$tags"},
+    contributors : {$first : "$contributors"},
+    author : {$first : "$author"},
+    translations: {$push : "$translations"}
+  }});
 
   let page = parseInt(req.query.page, 10) || 1;
   const perPage = parseInt(req.query.per_page, 10) || 20;
