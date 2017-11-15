@@ -456,6 +456,7 @@ server.get({
     return next();
   }
 
+  res.setHeader('Access-Control-Allow-Headers', 'Link, X-Pagination-Page-Count, X-Pagination-Total-Count, X-Pagination-Per-Page, X-Pagination-Current-Page, Access-Control-Request-Method, X-Requested-With, Content-Type, Authorization');
   res.setHeader('X-Pagination-Current-Page', page);
   res.setHeader('X-Pagination-Per-Page', perPage);
   res.setHeader('X-Pagination-Total-Count', total);
