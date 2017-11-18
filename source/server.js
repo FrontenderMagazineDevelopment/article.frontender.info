@@ -295,6 +295,12 @@ server.get({
 
   console.log('id request', req.params.id);
 
+  if (req.params.id === 'favicon.ico') {
+    res.status(204);
+    req.end();
+    return next();
+  }
+
   if (req.params.id === '') return next('Get articles');
 
   let result;
@@ -303,7 +309,7 @@ server.get({
     const query = [];
 
     query.push({"$match": {
-        "_id": req.params.id,
+        "_id": mongoose.Types.ObjectId(req.params.id),
       }});
 
     query.push({$unwind: {
