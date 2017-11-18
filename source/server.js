@@ -292,16 +292,19 @@ server.get({
   path: '/:id',
   name: 'Get article by ID',
 }, async (req, res, next) => {
+
+  console.log('id request', req.params.id);
+
   if (req.params.id === '') return next('Get articles');
+
   let result;
   try {
 
     const query = [];
-    query.push({
-      "$match": {
-        _id: req.params.id,
-      }
-    });
+
+    query.push({"$match": {
+        "_id": req.params.id,
+      }});
 
     query.push({$unwind: {
       path: "$translations",
@@ -339,10 +342,13 @@ server.get({
       translations: {$push : "$translations"}
     }});
 
+    console.log('id:', query);
+
     result = await Article.aggregate(query);
 
     if (result === null) throw new Error('no such article')
   } catch (error) {
+    console.log('fuck:', error);
     res.status(404);
     res.end();
     return next();
@@ -441,6 +447,8 @@ server.get({
     author : {$first : "$author"},
     translations: {$push : "$translations"}
   }});
+
+  console.log(query);
 
   let page = parseInt(req.query.page, 10) || 1;
   const perPage = parseInt(req.query.per_page, 10) || 20;

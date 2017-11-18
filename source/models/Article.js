@@ -24,5 +24,5 @@ const ArticleSchema = new mongoose.Schema({
   // @todo votes
 });
 
-const Article = mongoose.model('article', ArticleSchema);
+const Article = mongoose.model('articles', ArticleSchema);
 export default Article;
