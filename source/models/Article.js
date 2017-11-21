@@ -2,8 +2,8 @@ import mongoose from 'mongoose';
 
 const ArticleSchema = new mongoose.Schema({
   url: { type: String, required: true, trim: true, lowercase: true }, // article current url
-  domain: { type: String, required: true, text: true, trim: true, lowercase: true }, // domain from the url
-  title: { type: String, required: true, text: true, trim: true }, // title of article
+  domain: { type: String, required: true,  trim: true, lowercase: true }, // domain from the url
+  title: { type: String, required: true, trim: true }, // title of article
   lang: { type: String, required: true, trim: true }, // iso code of the language
   published: { type: Date, required: true },
 
