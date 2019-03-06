@@ -1,47 +1,45 @@
-import 'babel-polyfill';
 import mongoose from 'mongoose';
 import jwt from 'restify-jwt';
 import restify from 'restify';
 import cookieParser from 'restify-cookies';
 import dotenv from 'dotenv';
-import fs from 'fs';
 import { resolve } from 'path';
 import validator from 'restify-joi-middleware';
-
-import Article from './models/Article';
 
 import articlePOSTValidation from './validators/article/post';
 import articlePUTValidation from './validators/article/put';
 import articlePATCHValidation from './validators/article/patch';
 
-const ENV_PATH = resolve(__dirname, '../../.env');
-const CONFIG_DIR = '../config/';
-const CONFIG_PATH = resolve(
-  __dirname,
-  `${CONFIG_DIR}application.${process.env.NODE_ENV || 'local'}.json`,
-);
-if (!fs.existsSync(ENV_PATH)) throw new Error('Envirnment files not found');
-dotenv.config({ path: ENV_PATH });
+import { article, articles, repository } from './routes';
 
-if (!fs.existsSync(CONFIG_PATH)) throw new Error(`Config not found: ${CONFIG_PATH}`);
-const config = require(CONFIG_PATH); // eslint-disable-line
+const ENV_PATH = resolve(__dirname, '../.env');
+dotenv.config({
+  allowEmptyValues: false,
+  path: ENV_PATH,
+});
+
+const { MONGODB_PORT, MONGODB_HOST, MONGODB_NAME, JWT_SECRET } = process.env;
+
+const PORT = process.env.PORT || 3050;
+
 const { name, version } = require('../package.json');
 
 const jwtOptions = {
-  secret: process.env.JWT_SECRET,
+  secret: JWT_SECRET,
   getToken: req => {
     if (req.headers.authorization && req.headers.authorization.split(' ')[0] === 'Bearer') {
       return req.headers.authorization.split(' ')[1];
-    } else if (req.query && req.query.token) {
+    }
+    if (req.query && req.query.token) {
       return req.query.token;
-    } else if (req.cookies && req.cookies.token) {
+    }
+    if (req.cookies && req.cookies.token) {
       return req.cookies.token;
     }
     return null;
   },
 };
 
-const PORT = process.env.PORT || 3050;
 const server = restify.createServer({ name, version });
 server.use(restify.plugins.acceptParser(server.acceptable));
 server.use(restify.plugins.queryParser());
@@ -49,137 +47,64 @@ server.use(restify.plugins.bodyParser());
 server.use(restify.plugins.gzipResponse());
 server.use(cookieParser.parse);
 server.use(validator());
-server.use(jwt(jwtOptions).unless({method: ['OPTIONS', 'GET']}));
+server.use(jwt(jwtOptions).unless({ method: ['OPTIONS', 'GET'] }));
 
 server.pre((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Headers', 'Access-Control-Request-Method, X-Requested-With, Content-Type, Authorization');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'Access-Control-Request-Method, X-Requested-With, Content-Type, Authorization',
+  );
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.charSet('utf-8');
   return next();
 });
 
-// OPTIONS
+// Reponame
 
-server.opts({
-  name: 'Check methods allowed for repository endpoint',
-  path: '/reponame/:reponame',
-}, async (req, res) => {
-  const methods = ['OPTIONS', 'GET'];
-  const method = req.header('Access-Control-Request-Method');
-  res.setHeader('Access-Control-Allow-Methods', methods.join(','));
-  res.setHeader('Allow', methods.join(','));
-  if (methods.indexOf(method) === -1) {
-    res.status(405);
-    res.end();
-    return;
-  }
-  res.status(200);
-  res.end();
-});
-
-server.opts({
-  name: 'Check methods allowed for article',
-  path: '/:id'
-}, async (req, res) => {
-  const methods = ['OPTIONS', 'GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
-  const method = req.header('Access-Control-Request-Method');
-  res.setHeader('Access-Control-Allow-Methods', methods.join(','));
-  res.setHeader('Allow', methods.join(','));
-  if (methods.indexOf(method) === -1) {
-    res.status(405);
-    res.end();
-    return;
-  }
-  res.status(200);
-  res.end();
-});
-
-server.opts({
-  name: 'Check methods allowed for articles list',
-  path: '/:id'
-}, async (req, res) => {
-  const methods = ['OPTIONS', 'GET', 'POST'];
-  const method = req.header('Access-Control-Request-Method');
-  res.setHeader('Access-Control-Allow-Methods', methods.join(','));
-  res.setHeader('Allow', methods.join(','));
-  if (methods.indexOf(method) === -1) {
-    res.status(405);
-    res.end();
-    return;
-  }
-  res.status(200);
-  res.end();
-});
+server.opts(
+  {
+    name: 'Check methods allowed for repository endpoint',
+    path: '/repository/:reponame',
+  },
+  repository.opt,
+);
 
 /**
  * Get article by reponame
  * @type {String} reponame - name of repository
- * @return {Object} - user
+ * @return {Object} - repository
  */
-server.get({
-  path: '/repository/:reponame',
-  name: 'Get article by repository'
-}, async (req, res, next) => {
-  let result;
-  try {
-    const query = [];
-    query.push({
-      "$match": {
-        $or: [{reponame: req.params.reponame}, {"translations.reponame": req.params.reponame}]
-      }
-    });
-
-    query.push({$unwind: {
-      path: "$translations",
-      preserveNullAndEmptyArrays: true
-    }});
-
-    query.push({
-      "$lookup": {
-        "from": "users",
-        "localField": "author",
-        "foreignField": "_id",
-        "as": "author",
-      }
-    });
-
-    query.push({
-      "$lookup": {
-        "from": "users",
-        "localField": "translations.author",
-        "foreignField": "_id",
-        "as": "translations.author",
-      }
-    });
-
-    query.push({$group: {
-      _id : "$_id",
-      url : {$first : "$url"},
-      domain : {$first : "$domain"},
-      title : {$first : "$title"},
-      published : {$first : "$published"},
-      lang : {$first : "$lang"},
-      tags : {$first : "$tags"},
-      contributors : {$first : "$contributors"},
-      author : {$first : "$author"},
-      translations: {$push : "$translations"}
-    }});
-
-    result = await Article.aggregate(query);
-  } catch (error) {
-    res.status(500);
-    res.send(error.message);
-    res.end();
-    return next();
-  }
-  res.status((result.length === 0) ? 404 : 200);
-  res.send(result);
-  res.end();
-  return next();
-});
+server.get(
+  {
+    path: '/repository/:reponame',
+    name: 'Get article by repository',
+  },
+  repository.get,
+);
 
 // Article
+
+server.opts(
+  {
+    name: 'Check methods allowed for article',
+    path: '/:id',
+  },
+  article.opt,
+);
+
+/**
+ * Get user by ID
+ * @type {String} id - user id
+ * @return {Object} - user
+ */
+server.get(
+  {
+    path: '/:id',
+    name: 'Get article by ID',
+  },
+  article.get,
+);
 
 /**
  * Replace article by id
@@ -192,41 +117,7 @@ server.put(
     validation: articlePUTValidation,
   },
   jwt(jwtOptions),
-  async (req, res, next) => {
-    if (req.user.scope.isOwner === false) {
-      res.status(401);
-      res.end();
-      return next();
-    }
-
-    const result = await Article.replaceOne({ _id: req.params.id }, req.params);
-
-    if (!result.ok) {
-      res.status(500);
-      res.end();
-      return next();
-    }
-
-    if (!result.n) {
-      res.status(404);
-      res.end();
-      return next();
-    }
-
-    let user;
-    try {
-      user = await Article.findById(req.params.id);
-    } catch (error) {
-      res.status(404);
-      res.end();
-      return next();
-    }
-
-    res.status(200);
-    res.send(user);
-    res.end();
-    return next();
-  },
+  article.put,
 );
 
 /**
@@ -240,262 +131,39 @@ server.patch(
     validation: articlePATCHValidation,
   },
   jwt(jwtOptions),
-  async (req, res, next) => {
-    if (req.user.scope.isTeam === false) {
-      res.status(401);
-      res.end();
-      return next();
-    }
-
-    if (req.user.scope.isOwner === false) {
-      res.status(401);
-      res.end();
-      return next();
-    }
-
-    const result = await Article.updateOne({ _id: req.params.id }, req.params);
-
-    if (!result.ok) {
-      res.status(500);
-      res.end();
-      return next();
-    }
-
-    if (!result.n) {
-      res.status(404);
-      res.end();
-      return next();
-    }
-
-    let user;
-    try {
-      user = await Article.findById(req.params.id);
-    } catch (error) {
-      res.status(404);
-      res.end();
-      return next();
-    }
-
-    res.status(200);
-    res.send(user);
-    res.end();
-    return next();
-  },
+  article.patch,
 );
-
-/**
- * Get user by ID
- * @type {String} id - user id
- * @return {Object} - user
- */
-server.get({
-  path: '/:id',
-  name: 'Get article by ID',
-}, async (req, res, next) => {
-
-  console.log('id request', req.params.id);
-
-  if (req.params.id === 'favicon.ico') {
-    res.status(204);
-    req.end();
-    return next();
-  }
-
-  if (req.params.id === '') return next('Get articles');
-
-  let result;
-  try {
-
-    const query = [];
-
-    query.push({"$match": {
-        "_id": mongoose.Types.ObjectId(req.params.id),
-      }});
-
-    query.push({$unwind: {
-      path: "$translations",
-      preserveNullAndEmptyArrays: true
-    }});
-
-    query.push({
-      "$lookup": {
-        "from": "users",
-        "localField": "author",
-        "foreignField": "_id",
-        "as": "author",
-      }
-    });
-
-    query.push({
-      "$lookup": {
-        "from": "users",
-        "localField": "translations.author",
-        "foreignField": "_id",
-        "as": "translations.author",
-      }
-    });
-
-    query.push({$group: {
-      _id : "$_id",
-      url : {$first : "$url"},
-      domain : {$first : "$domain"},
-      title : {$first : "$title"},
-      published : {$first : "$published"},
-      lang : {$first : "$lang"},
-      tags : {$first : "$tags"},
-      contributors : {$first : "$contributors"},
-      author : {$first : "$author"},
-      translations: {$push : "$translations"}
-    }});
-
-    console.log('id:', query);
-
-    result = await Article.aggregate(query);
-
-    if (result === null) throw new Error('no such article')
-  } catch (error) {
-    console.log('fuck:', error);
-    res.status(404);
-    res.end();
-    return next();
-  }
-
-  res.status(200);
-  res.send(result);
-  res.end();
-  return next();
-});
 
 /**
  * Remove user by ID
  * @type {String} - user id
  */
-server.del({
-  path: '/:id',
-  name: 'Delete article by ID',
-}, jwt(jwtOptions), async (req, res, next) => {
-  if (req.user.scope.isOwner === false) {
-    res.status(401);
-    res.end();
-    return next();
-  }
+server.del(
+  {
+    path: '/:id',
+    name: 'Delete article by ID',
+  },
+  jwt(jwtOptions),
+  article.del,
+);
 
-  const result = await Article.remove({ _id: req.params.id });
+// Articles
 
-  if (!result.result.ok) {
-    res.status(500);
-    res.end();
-    return next();
-  }
+server.opts(
+  {
+    path: '/',
+    name: 'Check methods allowed for articles list',
+  },
+  articles.opt,
+);
 
-  if (!result.result.n) {
-    res.status(404);
-    res.end();
-    return next();
-  }
-
-  res.status(204);
-  res.end();
-  return next();
-});
-
-server.get({
-  path: '/',
-  name: 'Get articles',
-  },  async (req, res, next) => {
-
-  const query = [];
-
-  if (req.query.s !== undefined) {
-    res.setHeader('Cache-Control', 'no-cache');
-    query.push({ $match: {
-        "$text": {
-          $search: req.query.s,
-          $caseSensitive: false,
-          $diacriticSensitive: false,
-        }
-      }
-    });
-  }
-
-  query.push({$unwind: {
-    path: "$translations",
-    preserveNullAndEmptyArrays: true
-  }});
-
-  query.push({
-    "$lookup": {
-      "from": "users",
-      "localField": "author",
-      "foreignField": "_id",
-      "as": "author",
-    }
-  });
-
-  query.push({
-    "$lookup": {
-      "from": "users",
-      "localField": "translations.author",
-      "foreignField": "_id",
-      "as": "translations.author",
-    }
-  });
-
-  query.push({$group: {
-    _id : "$_id",
-    url : {$first : "$url"},
-    domain : {$first : "$domain"},
-    title : {$first : "$title"},
-    published : {$first : "$published"},
-    lang : {$first : "$lang"},
-    tags : {$first : "$tags"},
-    contributors : {$first : "$contributors"},
-    author : {$first : "$author"},
-    translations: {$push : "$translations"}
-  }});
-
-  console.log(query);
-
-  let page = parseInt(req.query.page, 10) || 1;
-  const perPage = parseInt(req.query.per_page, 10) || 20;
-  const full = await Article.aggregate(query);
-  const total = full.length;
-  const pagesCount = Math.ceil(total/perPage);
-
-  if (perPage === 0) {
-    const result = full;
-    res.status(200);
-    res.send(result);
-    res.end();
-    return next();
-  }
-
-  res.setHeader('Access-Control-Allow-Headers', 'Link, X-Pagination-Page-Count, X-Pagination-Total-Count, X-Pagination-Per-Page, X-Pagination-Current-Page, Access-Control-Request-Method, X-Requested-With, Content-Type, Authorization');
-  res.setHeader('X-Pagination-Current-Page', page);
-  res.setHeader('X-Pagination-Per-Page', perPage);
-  res.setHeader('X-Pagination-Total-Count', total);
-  res.setHeader('X-Pagination-Page-Count', pagesCount);
-
-  page = Math.min(page, pagesCount);
-
-  const links = [];
-  links.push(`<${config.domain}?page=1>; rel=first`);
-  if ( page > 1 ) {
-    links.push(`<${config.domain}?page=${(page - 1)}>; rel=prev`);
-  }
-  links.push(`<${config.domain}?page=${page}>; rel=self`);
-  if ( page < pagesCount ) {
-    links.push(`<${config.domain}?page=${(page + 1)}>; rel=prev`);
-  }
-  links.push(`<${config.domain}?page=${pagesCount}>; rel=last`);
-  res.setHeader('Link', links.join(', '));
-
-  const result = await Article.aggregate(query).skip((page - 1) * perPage).limit(perPage);
-  res.status(200);
-  res.send(result);
-  res.end();
-  return next();
-});
+server.get(
+  {
+    path: '/',
+    name: 'Get articles',
+  },
+  articles.get,
+);
 
 server.post(
   {
@@ -504,42 +172,14 @@ server.post(
     validation: articlePOSTValidation,
   },
   jwt(jwtOptions),
-  async (req, res, next) => {
-    if (req.user.scope.isOwner === false) {
-      res.status(401);
-      res.end();
-      return next();
-    }
-
-    const user = new Article(req.params);
-    let result;
-    try {
-      result = await user.save();
-    } catch (error) {
-      res.status(400);
-      res.send(error.message);
-      res.end();
-      return next();
-    }
-
-    res.link('Location', `${config}${result._id}`);
-    res.header('content-type', 'json');
-    res.status(201);
-    res.send(result);
-    res.end();
-    return next();
-  },
+  articles.post,
 );
 
 (async () => {
-  try {
-    mongoose.Promise = global.Promise;
-    await mongoose.connect(
-      `mongodb://${config.mongoDBHost}:${config.mongoDBPort}/${config.mongoDBName}`,
-      { useMongoClient: true },
-    );
-    server.listen(PORT);
-  } catch (error) {
-    console.log(error);
-  }
+  mongoose.Promise = global.Promise;
+  await mongoose.connect(`mongodb://${MONGODB_HOST}:${MONGODB_PORT}/${MONGODB_NAME}`, {
+    useNewUrlParser: true,
+    useCreateIndex: true,
+  });
+  server.listen(PORT);
 })();

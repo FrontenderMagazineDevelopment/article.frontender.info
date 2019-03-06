@@ -24,7 +24,6 @@ articles = Object.values(articles);
 
 let contributors = require('./contributors.json'); // eslint-disable-line
 
-
 (async () => {
   mongoose.Promise = global.Promise;
   await mongoose.connect(
@@ -32,8 +31,7 @@ let contributors = require('./contributors.json'); // eslint-disable-line
     { useMongoClient: true },
   );
 
-  const list = articles.map(async (article) => {
-
+  const list = articles.map(async article => {
     let original = {
       url: article.url,
       domain: article.domain,
@@ -43,27 +41,31 @@ let contributors = require('./contributors.json'); // eslint-disable-line
     };
 
     if (article.contributors !== null) {
-
-      let authors = Object.keys(article.contributors).filter((name)=>((article.contributors[name] === 'Автор')||(article.contributors[name] === 'Aвтор')));
+      let authors = Object.keys(article.contributors).filter(
+        name => article.contributors[name] === 'Автор' || article.contributors[name] === 'Aвтор',
+      );
 
       if (authors.length === 0) {
         throw new Error(`Автор не найден ${JSON.stringify(article.contributors)}`);
       }
 
-      authors = authors.filter((login) => (
-        (contributors[login] !== undefined)
-        || (contributors[login.toLowerCase()] === undefined)
-      ));
+      authors = authors.filter(
+        login =>
+          contributors[login] !== undefined || contributors[login.toLowerCase()] === undefined,
+      );
 
       if (authors.length === 0) {
         throw new Error(`Не могу получить псевдоним: ${JSON.stringify(article)}`);
       }
 
-      authors = authors.map(async (login) => {
-        if ((contributors[login] === undefined) && (contributors[login.toLowerCase()] === undefined)) {
+      authors = authors.map(async login => {
+        if (contributors[login] === undefined && contributors[login.toLowerCase()] === undefined) {
           console.log('login ', login, ' fucked');
         }
-        const value = (contributors[login] !== undefined) ? contributors[login].name : contributors[login.toLowerCase()].name;
+        const value =
+          contributors[login] !== undefined
+            ? contributors[login].name
+            : contributors[login.toLowerCase()].name;
         const user = await User.find({ name: value });
         return user[0]._id;
       });
@@ -78,14 +80,12 @@ let contributors = require('./contributors.json'); // eslint-disable-line
     }
 
     if (article.ready === true) {
-
       if (article.type === 'Статья') {
         original = {
           ...original,
           lang: 'rus',
           reponame: article.reponame,
-        }
-
+        };
       } else {
         const translation = {
           url: `https://frontender.info/${article.reponame}/`,
@@ -96,18 +96,26 @@ let contributors = require('./contributors.json'); // eslint-disable-line
           published: new Date(article.magazine_publish_date),
         };
 
-        let translators = Object.keys(article.contributors).filter((name)=>(article.contributors[name] === 'Переводчик'));
+        let translators = Object.keys(article.contributors).filter(
+          name => article.contributors[name] === 'Переводчик',
+        );
 
-        translators = translators.filter((login) => (
-          (contributors[login] !== undefined)
-          || (contributors[login.toLowerCase()] === undefined)
-        ));
+        translators = translators.filter(
+          login =>
+            contributors[login] !== undefined || contributors[login.toLowerCase()] === undefined,
+        );
 
-        translators = translators.map(async (login) => {
-          if ((contributors[login] === undefined) && (contributors[login.toLowerCase()] === undefined)) {
+        translators = translators.map(async login => {
+          if (
+            contributors[login] === undefined &&
+            contributors[login.toLowerCase()] === undefined
+          ) {
             console.log('login ', login, ' fucked');
           }
-          const value = (contributors[login] === undefined) ? contributors[login.toLowerCase()].name : contributors[login].name;
+          const value =
+            contributors[login] === undefined
+              ? contributors[login.toLowerCase()].name
+              : contributors[login].name;
           const user = await User.find({ name: value });
           return user[0]._id;
         });
@@ -121,9 +129,9 @@ let contributors = require('./contributors.json'); // eslint-disable-line
 
     const toSave = new Article(original);
 
-    await toSave.save((error, object)=>{
+    await toSave.save((error, object) => {
       if (error !== null) {
-        console.log('Error: ', article.eng, " : ", error);
+        console.log('Error: ', article.eng, ' : ', error);
         throw new Error(error);
       } else {
         console.log('Article: ', object);
@@ -135,11 +143,13 @@ let contributors = require('./contributors.json'); // eslint-disable-line
     return original;
   });
 
-  await Promise.all(list).then(()=>{
-    console.log('done');
-    mongoose.connection.close();
-  }).catch(err => {
-    console.log(err);
-    mongoose.connection.close();
-  });
+  await Promise.all(list)
+    .then(() => {
+      console.log('done');
+      mongoose.connection.close();
+    })
+    .catch(err => {
+      console.log(err);
+      mongoose.connection.close();
+    });
 })();
