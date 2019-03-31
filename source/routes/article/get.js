@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import Article from '../../models/Article';
+import { Article } from '@frontender-magazine/models';
 
 export async function get(req, res, next) {
   if (req.params.id === 'favicon.ico') {

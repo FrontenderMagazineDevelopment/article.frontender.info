@@ -1,4 +1,4 @@
-import Article from '../../models/Article';
+import { Article } from '@frontender-magazine/models';
 
 export async function put(req, res, next) {
   if (req.user.scope.isOwner === false) {

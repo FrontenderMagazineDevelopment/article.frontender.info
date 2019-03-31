@@ -15,7 +15,9 @@
     "serviceworker": true,
     "es6": true
   },
-  rules: {
-    "no-underscore-dangle": ["error", { "allow": ["_id"] }]
+  "rules": {
+    "no-underscore-dangle": ["error", {
+      "allow": ["_id"]
+    }]
   }
 }

@@ -1,4 +1,4 @@
-import Article from '../../models/Article';
+import { Article } from '@frontender-magazine/models';
 
 export async function get(req, res, next) {
   const { ARTICLES_DOMAIN } = process.env;
