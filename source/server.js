@@ -41,6 +41,8 @@ const jwtOptions = {
 };
 
 const server = restify.createServer({ name, version });
+server.pre(restify.plugins.pre.dedupeSlashes());
+
 server.use(restify.plugins.acceptParser(server.acceptable));
 server.use(restify.plugins.queryParser());
 server.use(restify.plugins.bodyParser());
@@ -56,6 +58,7 @@ server.pre((req, res, next) => {
     'Access-Control-Request-Method, X-Requested-With, Content-Type, Authorization',
   );
   res.setHeader('Access-Control-Allow-Credentials', true);
+  res.setHeader('Content-Type', 'application/json');
   res.charSet('utf-8');
   return next();
 });
@@ -179,6 +182,7 @@ server.post(
   mongoose.Promise = global.Promise;
   await mongoose.connect(`mongodb://${MONGODB_HOST}:${MONGODB_PORT}/${MONGODB_NAME}`, {
     useNewUrlParser: true,
+    useUnifiedTopology: true,
     useCreateIndex: true,
   });
   server.listen(PORT);

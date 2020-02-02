@@ -3,16 +3,12 @@ language: node_js
 branches:
   only:
   - master
-addons:
-  apt:
-    packages:
-    - sshpass
 before_install: true
-install: true
-before_script:
-- chmod +x ./deploy/deploy.sh
-script: true
-after_script: ./deploy/deploy.sh
+install:
+  - npm ci
+  - npm run build
+script:
+  - npm t
 env:
   global:
   - secure: ycFitxL2LLvVvSIT0u5OgD8oR45H/s7E2qW1vBMvxQNuLlU1ZemL+2jqoJzKcMX17pINt4xEhg866bCLiEoqig6hDlybLOzWp2QkxMgz+UpOe9kJrKvnx3cg7lZg9XBu0cStwABtj4BMNgY732zf8hdFZxT5r76OUQGNw3H/fsFx0ex+xxXwLLKVDyND5NDUf5TGZr3szk2ecvtqFlvUnnFfFGDSLbqje2dAJcqIdbrySyEgObixO8FmkRpMYV/E2lS7kYMvU23FOwwe/FYCiC38w1kj4iL31J3LDZbIxj/Pz8p/CmtgMxjLLw0+1uzxXLmGoKBrqMIYBGW/EVnTSWSHHe6vhWqzNTyKtoTQCYJfX96pGzHcFtNoFZTiuMuGMkLfPzJRPYUmpW9IU9U8w7PeCArUcjk3nwiYN4sDttqigvbNPF4EQqqdv6eR0UXAwmPJDpbwA8tz8rAI7JuJsVnYpSqcloHO9AXgtZ+XYlkYEmoDl+5JURyPi5QJqcxqPcB9tflJFJRS8EnI4CnQtAad/SO8P7MLC7EW/I9LssWHCwzpkpSGTArK5itrzvSzopOUW9UwHtwaiy8unZZe5Y7Gmxm9r23d4EDks0+bSW8nD7Xf01txrdmHHRtdEhtlSkqaxj8HkLMrPswTRufBr5y/fxwm63BwYarcpEHfmas=
