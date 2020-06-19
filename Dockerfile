@@ -32,7 +32,7 @@ RUN npm run build
 #
 # ---- Release ----
 FROM base AS release
-RUN apk add --update bash && rm -rf /var/cache/apk/*
+RUN apk add --update bash curl && rm -rf /var/cache/apk/*
 # copy production node_modules
 COPY --from=dependencies /var/app/prod_node_modules ./node_modules
 COPY --from=build /var/app/build ./build
@@ -41,5 +41,6 @@ COPY --from=build /var/app/build ./build
 # Setup environment variables
 ENV NODE_ENV=production
 # expose port and define CMD
-EXPOSE 4000
+EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=5s CMD curl --fail http://0.0.0.0:3000 || exit 1
 CMD npm run start

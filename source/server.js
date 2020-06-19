@@ -5,11 +5,14 @@ import cookieParser from 'restify-cookies';
 import dotenv from 'dotenv';
 import { resolve } from 'path';
 import validator from 'restify-joi-middleware';
+import amqp from 'amqplib';
 
+import { createTerminus } from "@godaddy/terminus";
 import articlePOSTValidation from './validators/article/post';
 import articlePUTValidation from './validators/article/put';
 import articlePATCHValidation from './validators/article/patch';
 
+import createArticle from './operations/create';
 import { article, articles, repository } from './routes';
 
 const ENV_PATH = resolve(__dirname, '../.env');
@@ -18,9 +21,9 @@ dotenv.config({
   path: ENV_PATH,
 });
 
-const { MONGODB_PORT, MONGODB_HOST, MONGODB_NAME, JWT_SECRET } = process.env;
+const { RABIITMQ_HOST, MONGODB_PORT, MONGODB_HOST, MONGODB_NAME, JWT_SECRET, NODE_ENV } = process.env;
 
-const PORT = process.env.PORT || 3050;
+const PORT = process.env.PORT || 3000;
 
 const { name, version } = require('../package.json');
 
@@ -185,5 +188,51 @@ server.post(
     useUnifiedTopology: true,
     useCreateIndex: true,
   });
-  server.listen(PORT);
+
+  const serverStarted = server.listen(PORT, (error) => {
+    if (error) throw error;
+    console.log(`🚀🚀 Ready on http://localhost:${PORT}`);
+  });
+
+  const checkConnections = (resolveConnections, rejectConnections) => {
+    // eslint-disable-next-line consistent-return
+    serverStarted.getConnections((error, count) => {
+      if (error) return rejectConnections();
+      if (count === 0 || NODE_ENV === "local") return resolveConnections();
+
+      console.log(`⌛ Waiting for ${count} open connections to finish`);
+      setTimeout(checkConnections, 5000, resolveConnections, rejectConnections);
+    });
+  };
+
+  createTerminus(serverStarted, {
+    signals: ["SIGTERM", "SIGINT"],
+    healthChecks: {
+      "/health": async () => Promise.resolve({ uptime: process.uptime() }),
+      verbatim: true,
+    },
+    beforeShutdown() {
+      console.log(`💀 Received kill signal`);
+      return new Promise(checkConnections);
+    },
+  });
+
+  const connection = await amqp.connect(`amqp://${RABIITMQ_HOST}`);
+  const channel = await connection.createChannel();
+  const queue = 'bus';
+
+  channel.assertQueue(queue, {
+    durable: false
+  });
+
+  console.log("[*] Waiting for messages in %s. To exit press CTRL+C", queue);
+
+  channel.consume(queue, (msg) => {
+    const event = JSON.parse(msg);
+    if (event.name === "CREATE_ARTICLE") createArticle(event.payload);
+  }, {
+    noAck: true
+  });
+
+
 })();

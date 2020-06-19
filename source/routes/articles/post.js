@@ -7,10 +7,10 @@ export async function post(req, res, next) {
     return next();
   }
 
-  const user = new Article(req.params);
+  const article = new Article(req.params);
   let result;
   try {
-    result = await user.save();
+    result = await article.save();
   } catch (error) {
     res.status(400);
     res.send(error.message);
