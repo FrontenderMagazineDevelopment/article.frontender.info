@@ -1,7 +1,15 @@
 import { Article } from '@frontender-magazine/models';
 
-
-export default params => {
+export default async params => {
   const article = new Article(params);
-  article.save();
+  let result;
+  try {
+    result = await article.save();
+    console.log('result: ');
+    console.log(result);
+    return result;
+  } catch (error) {
+    console.log('error: ');
+    console.log(error);
+  }
 }

@@ -227,9 +227,14 @@ server.post(
 
   console.log("[*] Waiting for messages in %s. To exit press CTRL+C", queue);
 
-  channel.consume(queue, (msg) => {
-    const event = JSON.parse(msg);
-    if (event.name === "CREATE_ARTICLE") createArticle(event.payload);
+  channel.consume(queue, async (msg) => {
+    // console.log('msg: ');
+    // console.log(msg);
+    console.log(JSON.parse(msg.content.toString()));
+    const event = JSON.parse(msg.content.toString());
+    if (event.name === "CREATE_ARTICLE")  {
+      await createArticle(event.payload);
+    }
   }, {
     noAck: true
   });
