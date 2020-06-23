@@ -27,6 +27,30 @@ const PORT = process.env.PORT || 3000;
 
 const { name, version } = require('../package.json');
 
+let connection;
+let channel;
+const queue = 'bus';
+let retries = 3;
+const interval = 10000;
+
+const connectToRabbitMQ = async () => (new Promise(async (resolve, reject) => {
+  try {
+    connection = await amqp.connect(`amqp://${RABIITMQ_HOST}`);
+    channel = await connection.createChannel();
+    console.log('RabbitMQ is connected.')
+    resolve();
+  } catch (error) {
+    console.log(error);
+    if (retries > 0) {
+      console.log(`Reconnect in ${interval/1000} seconds. ${retries} attempts left.`)
+      setTimeout(connectToRabbitMQ, interval);
+    } else {
+      reject();
+    }
+    retries--;
+  }
+}));
+
 const jwtOptions = {
   secret: JWT_SECRET,
   getToken: req => {
@@ -217,27 +241,27 @@ server.post(
     },
   });
 
-  const connection = await amqp.connect(`amqp://${RABIITMQ_HOST}`);
-  const channel = await connection.createChannel();
-  const queue = 'bus';
+  try {
+    await connectToRabbitMQ();
 
-  channel.assertQueue(queue, {
-    durable: false
-  });
+    channel.assertQueue(queue, {
+      durable: false
+    });
 
-  console.log("[*] Waiting for messages in %s. To exit press CTRL+C", queue);
+    console.log("[*] Waiting for messages in %s. To exit press CTRL+C", queue);
 
-  channel.consume(queue, async (msg) => {
-    // console.log('msg: ');
-    // console.log(msg);
-    console.log(JSON.parse(msg.content.toString()));
-    const event = JSON.parse(msg.content.toString());
-    if (event.name === "CREATE_ARTICLE")  {
-      await createArticle(event.payload);
-    }
-  }, {
-    noAck: true
-  });
+    channel.consume(queue, async (msg) => {
+      console.log(JSON.parse(msg.content.toString()));
+      const event = JSON.parse(msg.content.toString());
+      if (event.name === "CREATE_ARTICLE")  {
+        await createArticle(event.payload);
+      }
+    }, {
+      noAck: true
+    });
+  } catch (error) {
+    console.log("RabbitMQ listener failed to connect");
+  }
 
 
 })();
