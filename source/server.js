@@ -33,23 +33,28 @@ const queue = 'bus';
 let retries = 3;
 const interval = 10000;
 
-const connectToRabbitMQ = async () => (new Promise(async (resolve, reject) => {
+const buildRabbitMQConnector = () => new Promise((resolve, reject) => connectToRabbitMQ(resolve, reject));
+
+const connectToRabbitMQ = async (resolve, reject) => {
   try {
     connection = await amqp.connect(`amqp://${RABIITMQ_HOST}`);
     channel = await connection.createChannel();
+    await channel.assertQueue(queue, {
+      durable: false
+    });
     console.log('RabbitMQ is connected.')
     resolve();
   } catch (error) {
     console.log(error);
     if (retries > 0) {
       console.log(`Reconnect in ${interval/1000} seconds. ${retries} attempts left.`)
-      setTimeout(connectToRabbitMQ, interval);
+      setTimeout(connectToRabbitMQ.bind(this, resolve, reject), interval);
     } else {
       reject();
     }
     retries--;
   }
-}));
+};
 
 const jwtOptions = {
   secret: JWT_SECRET,
@@ -242,11 +247,7 @@ server.post(
   });
 
   try {
-    await connectToRabbitMQ();
-
-    channel.assertQueue(queue, {
-      durable: false
-    });
+    await buildRabbitMQConnector();
 
     console.log("[*] Waiting for messages in %s. To exit press CTRL+C", queue);
 
